@@ -1,3 +1,6 @@
+package com.example.sankalp.mappy;
+
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -6,16 +9,19 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 
+/**
+ * Created by Coding Cafe on 7/18/2018.
+ */
+
 public class DownloadUrl
 {
-    public String ReadTheURL(String placeURL)
+    public String ReadTheURL(String placeURL) throws IOException
     {
         String Data = "";
         InputStream inputStream = null;
         HttpURLConnection httpURLConnection = null;
 
         try
-                // to download the data from URL
         {
             URL url = new URL(placeURL);
             httpURLConnection = (HttpURLConnection) url.openConnection();
@@ -27,20 +33,28 @@ public class DownloadUrl
 
             String line = "";
 
+            while ( (line = bufferedReader.readLine()) != null )
+            {
+                stringBuffer.append(line);
+            }
 
-
-
+            Data = stringBuffer.toString();
+            bufferedReader.close();
         }
-
         catch (MalformedURLException e)
         {
             e.printStackTrace();
         }
-
         catch (IOException e)
         {
             e.printStackTrace();
         }
-    return Data;
+        finally
+        {
+            inputStream.close();
+            httpURLConnection.disconnect();
+        }
+
+        return Data;
     }
 }

@@ -15,8 +15,10 @@ import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.content.ContextCompat;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -55,6 +57,9 @@ public class MapsActivity extends FragmentActivity implements
     private Location lastLocation;
     private Marker currentUserLocationMarker;
     private static final int Request_User_Location_Code = 99;
+    private int ProximityRadius = 10000;
+    private double latitide, longitude;
+    PlaceAutocompleteFragment places;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,7 +77,7 @@ public class MapsActivity extends FragmentActivity implements
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        PlaceAutocompleteFragment places= (PlaceAutocompleteFragment)
+        places= (PlaceAutocompleteFragment)
                 getFragmentManager().findFragmentById(R.id.place_autocomplete_fragment);
         places.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
@@ -109,16 +114,19 @@ public class MapsActivity extends FragmentActivity implements
 
     public void onClick(View v)
     {
+        String hospital = "hospital", school = "school", restaurant = "restaurant";
+        Object transferData[] = new Object[2];
+        GetNearbyPlaces getNearbyPlaces = new GetNearbyPlaces();
+
+
         switch (v.getId())
         {
             case R.id.search_address:
                 EditText addressField = (EditText) findViewById(R.id.location_search);
                 String address = addressField.getText().toString();
 
-
                 List<Address> addressList = null;
                 MarkerOptions userMarkerOptions = new MarkerOptions();
-
 
                 if (!TextUtils.isEmpty(address))
                 {
@@ -128,40 +136,76 @@ public class MapsActivity extends FragmentActivity implements
                     {
                         addressList = geocoder.getFromLocationName(address, 6);
 
-
                         if (addressList != null)
                         {
-                            for(int i=0; i<addressList.size(); i++)
+                            for (int i=0; i<addressList.size(); i++)
                             {
                                 Address userAddress = addressList.get(i);
-                                LatLng latLng =  new LatLng(userAddress.getLatitude(), userAddress.getLongitude());
+                                LatLng latLng = new LatLng(userAddress.getLatitude(), userAddress.getLongitude());
 
                                 userMarkerOptions.position(latLng);
                                 userMarkerOptions.title(address);
-                                userMarkerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
-
-
+                                userMarkerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE));
                                 mMap.addMarker(userMarkerOptions);
                                 mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-                                mMap.animateCamera(CameraUpdateFactory.zoomTo(7));
+                                mMap.animateCamera(CameraUpdateFactory.zoomTo(10));
                             }
                         }
                         else
                         {
-                            Toast.makeText(this, "Location Not Found", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(this, "Location not found...", Toast.LENGTH_SHORT).show();
                         }
                     }
                     catch (IOException e)
                     {
                         e.printStackTrace();
                     }
-
                 }
                 else
                 {
-                    Toast.makeText(this, "Write a Location name...", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "please write any location name...", Toast.LENGTH_SHORT).show();
                 }
                 break;
+
+
+            case R.id.hospitals_nearby:
+                mMap.clear();
+                String url = getUrl(latitide, longitude, hospital);
+                transferData[0] = mMap;
+                transferData[1] = url;
+
+                getNearbyPlaces.execute(transferData);
+                Toast.makeText(this, "Searching for Nearby Hospitals...", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Showing Nearby Hospitals...", Toast.LENGTH_SHORT).show();
+                break;
+
+
+            case R.id.schools_nearby:
+                mMap.clear();
+                url = getUrl(latitide, longitude, school);
+                transferData[0] = mMap;
+                transferData[1] = url;
+
+                getNearbyPlaces.execute(transferData);
+                Toast.makeText(this, "Searching for Nearby Schools...", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Showing Nearby Schools...", Toast.LENGTH_SHORT).show();
+                break;
+
+
+            case R.id.restaurant_nearby:
+                mMap.clear();
+                url = getUrl(latitide, longitude, restaurant);
+                transferData[0] = mMap;
+                transferData[1] = url;
+
+                getNearbyPlaces.execute(transferData);
+                Toast.makeText(this, "Searching for Nearby Restaurants...", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Showing Nearby Restaurants...", Toast.LENGTH_SHORT).show();
+                break;
+
+
+
+
         }
     }
 
@@ -176,6 +220,8 @@ public class MapsActivity extends FragmentActivity implements
         {
             buildGoogleApiClient();
             mMap.setMyLocationEnabled(true);
+
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(new LatLng(lastLocation.getLatitude() , lastLocation.getLongitude())));
 
 
         }
@@ -253,6 +299,8 @@ public class MapsActivity extends FragmentActivity implements
      public void onLocationChanged(Location location) {
 
         lastLocation = location;
+        latitide = location.getLatitude();
+        longitude = location.getLongitude();
         if (currentUserLocationMarker != null )
          {
              currentUserLocationMarker.remove();
@@ -316,6 +364,20 @@ public class MapsActivity extends FragmentActivity implements
      public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
 
      }
+
+    private String getUrl(double latitide, double longitude, String nearbyPlace)
+    {
+        StringBuilder googleURL = new StringBuilder("https://maps.googleapis.com/maps/api/place/nearbysearch/json?");
+        googleURL.append("location=" + latitide + "," + longitude);
+        googleURL.append("&radius=" + ProximityRadius);
+        googleURL.append("&type=" + nearbyPlace);
+        googleURL.append("&sensor=true");
+        googleURL.append("&key=" + "AIzaSyDtIWXQDUA1ufc_Vff3qbz522DnZ26Nk9w");
+
+        Log.d("GoogleMapsActivity", "url = " + googleURL.toString());
+
+        return googleURL.toString();
+    }
 
 
  }
