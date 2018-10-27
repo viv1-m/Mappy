@@ -6,6 +6,8 @@ import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
+import android.location.LocationManager;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -14,6 +16,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.media.app.NotificationCompat;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
@@ -39,7 +42,15 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 
 public class MapsActivity extends FragmentActivity implements
@@ -49,22 +60,129 @@ public class MapsActivity extends FragmentActivity implements
         LocationListener
 
 
+
+
 {
 
     private GoogleMap mMap;
     private GoogleApiClient googleApiClient;
     private LocationRequest locationRequest;
     private Location lastLocation;
+    String date;
+    String name;
+    String status;
+    String result;
+    int x = 0;
+    ArrayList<String > stringCountry = new ArrayList<String>();
+    ArrayList<String > stringType = new ArrayList<String>();
+
     private Marker currentUserLocationMarker;
     private static final int Request_User_Location_Code = 99;
     private int ProximityRadius = 10000;
     private double latitide, longitude;
     PlaceAutocompleteFragment places;
 
+    public class DownloadTask extends AsyncTask<String,Void,String>
+    {
+
+        @Override
+        protected String doInBackground(String... urls) {
+            String result = "";
+            URL url;
+            HttpURLConnection urlConnection = null;
+
+            try {
+
+                url = new URL(urls[0]);
+                urlConnection = (HttpURLConnection) url.openConnection();
+                InputStream in = urlConnection.getInputStream();
+                InputStreamReader reader = new InputStreamReader(in);
+                int data = reader.read();
+
+                while (data != -1) {
+                    char current = (char) data;
+                    result += current;
+                    data = reader.read();
+                }
+
+                return result;
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+
+            try {
+
+                Log.e("yoo", s);
+
+                JSONObject jsonObject = new JSONObject(s);
+
+                String disasters = jsonObject.getString("data");
+
+                Log.e("disasters", disasters);
+
+                JSONArray arr = new JSONArray(disasters);
+
+                for (int i=0; i < arr.length(); i++) {
+                    JSONObject jsonPart = arr.getJSONObject(i);
+                    String fields = jsonPart.getString("fields");
+                    Log.e("field " + i , fields);
+                    JSONObject jsonFields = new JSONObject(fields);
+                    date = jsonFields.getString("date");
+                    name = jsonFields.getString("name");
+                    status = jsonFields.getString("status");
+
+                       Log.e("date" , date);
+                       Log.e("name", name);
+                       Log.e("status" , status);
+
+                    String type = jsonFields.getString("type");
+
+                    JSONArray types = new JSONArray(type);
+
+                    String country = jsonFields.getString("country");
+
+                    JSONArray countries = new JSONArray(country);
+
+                    for(int j=0 ; j<types.length(); ++j){
+                        JSONObject jsonType = types.getJSONObject(j);
+                        stringType.add(jsonType.getString("name"));
+                         Log.e("Type "+j , stringType.get(x++));
+
+
+                        JSONObject jsonCountry = countries.getJSONObject(j);
+                        String countryString = jsonCountry.getString("name");
+                        stringCountry.add(countryString);
+                        if(countryString == "India"){
+
+                            Log.e("INDIA" , "Indian Disaster");
+                            //code for notification
+
+                        }
+                    }
+
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+        }
+    }
+
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState)
+    {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
+
+
 
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
@@ -77,13 +195,62 @@ public class MapsActivity extends FragmentActivity implements
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
+
+        DownloadTask task = new DownloadTask();
+        try {
+            result = task.execute("https://api.reliefweb.int/v1/disasters?appname=rwint-user-01&profile=list&preset=latest").get();
+            //Log.i("yooo" , result);
+
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+
         places= (PlaceAutocompleteFragment)
                 getFragmentManager().findFragmentById(R.id.place_autocomplete_fragment);
         places.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onPlaceSelected(Place place) {
 
-                Toast.makeText(getApplicationContext(),place.getName(),Toast.LENGTH_SHORT).show();
+                List<Address> addressList = null;
+                MarkerOptions userMarkerOptions = new MarkerOptions();
+
+                if (!TextUtils.isEmpty(place.getName()))
+                {
+                    Geocoder geocoder = new Geocoder(MapsActivity.this);
+
+                    try
+                    {
+                        addressList = geocoder.getFromLocationName(String.valueOf(place.getName()), 6);
+
+                        if (addressList != null)
+                        {
+                            for (int i=0; i<addressList.size(); i++)
+                            {
+                                Address userAddress = addressList.get(i);
+                                LatLng latLng = new LatLng(userAddress.getLatitude(), userAddress.getLongitude());
+
+                                userMarkerOptions.position(latLng);
+                                userMarkerOptions.title(String.valueOf(place.getName()));
+                                userMarkerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE));
+                                mMap.addMarker(userMarkerOptions);
+                                mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+                                mMap.animateCamera(CameraUpdateFactory.zoomTo(12));
+                            }
+                        }
+                        else
+                        {
+                            Log.e("ERROR", "Location not found...");
+                        }
+                    }
+                    catch (IOException e)
+                    {
+                        e.printStackTrace();
+                    }
+                }
+                else
+                {
+                    Log.e("ERROR", "please write any location name...");
+                }
             }
 
             @Override
@@ -221,8 +388,6 @@ public class MapsActivity extends FragmentActivity implements
             buildGoogleApiClient();
             mMap.setMyLocationEnabled(true);
 
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(new LatLng(lastLocation.getLatitude() , lastLocation.getLongitude())));
-
 
         }
     }
@@ -351,6 +516,9 @@ public class MapsActivity extends FragmentActivity implements
      public void FABonClick(View view){
 
          Intent intent = new Intent(this , floatingAct.class);
+         intent.putExtra("lat" , lastLocation.getLatitude());
+         Toast.makeText(this , String.valueOf(lastLocation.getLatitude()) , Toast.LENGTH_SHORT).show();;
+         intent.putExtra("lng" , lastLocation.getLongitude());
          startActivity(intent);
 
      }

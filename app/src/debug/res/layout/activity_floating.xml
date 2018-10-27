@@ -6,7 +6,9 @@
     android:layout_height="match_parent"
     tools:context=".floatingAct">
 
-
+<ScrollView
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -36,14 +38,14 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="40dp">
 
-            <ImageButton
+            <Button
                 android:id="@+id/locationButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:layout_marginLeft="40dp"
                 android:onClick="locationClicked"
-                app:srcCompat="@android:drawable/ic_input_add" />
+                android:text="SEND" />
 
             <TextView
                 android:id="@+id/location"
@@ -81,8 +83,10 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:onClick="searchClicked"
-            android:text="SEARCH" />
+            android:text="SEND" />
 
     </LinearLayout>
+
+</ScrollView>
 
 </android.support.constraint.ConstraintLayout>
